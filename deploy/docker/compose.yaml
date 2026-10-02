@@ -1,0 +1,72 @@
+name: t3-homelab
+
+services:
+  t3:
+    hostname: ${T3_HOSTNAME:-t3-homelab}
+    build:
+      context: .
+      target: ${T3_IMAGE_TARGET:-providers}
+      args:
+        NODE_VERSION: ${NODE_VERSION:-26.10.0}
+        NPM_VERSION: ${NPM_VERSION:-12.2.0}
+        T3_VERSION: ${T3_VERSION:-0.0.45}
+        N_VERSION: ${N_VERSION:-10.2.0}
+        UV_VERSION: ${UV_VERSION:-0.12.22}
+        GH_VERSION: ${GH_VERSION:-2.102.0}
+        CODEX_VERSION: ${CODEX_VERSION:-0.160.0}
+        CLAUDE_VERSION: ${CLAUDE_VERSION:-2.1.287}
+        OPENCODE_VERSION: ${OPENCODE_VERSION:-1.18.34}
+    init: true
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    stop_grace_period: 60s
+    pids_limit: 512
+    cpus: ${T3_CPUS:-4}
+    mem_limit: ${T3_MEMORY:-8g}
+    memswap_limit: ${T3_MEMORY:-8g}
+    environment:
+      T3CODE_HOST: "127.0.0.1"
+      T3CODE_PORT: "3773"
+      T3CODE_LOG_LEVEL: ${T3_LOG_LEVEL:-Info}
+      T3CODE_TELEMETRY_ENABLED: "false"
+      GH_HOST: github.com
+    volumes:
+      - type: bind
+        source: ${T3_WORKSPACE_DIR:?Set T3_WORKSPACE_DIR to an existing absolute host directory}
+        target: /workspace
+        bind:
+          create_host_path: false
+      - type: volume
+        source: agent-home
+        target: /home/node
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=512m,mode=1777
+    # No published ports, host networking, Docker socket, or host credentials.
+    networks: [egress]
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "const http=require('node:http');const r=http.get('http://127.0.0.1:3773/',s=>{s.resume();process.exit(s.statusCode===200?0:1)});r.setTimeout(4000,()=>{r.destroy();process.exit(1)});r.on('error',()=>process.exit(1));"
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  agent-home:
+
+networks:
+  # Connect, provider APIs, and dependency downloads require outbound access.
+  egress:
+    driver: bridge
