@@ -1,5 +1,7 @@
 # syntax=docker/dockerfile:1
 ARG NODE_VERSION=26.10.0
+ARG DOCKER_VERSION=29.8.1
+FROM docker:${DOCKER_VERSION}-cli AS docker-cli
 FROM node:${NODE_VERSION}-bookworm-slim AS runtime
 
 ARG T3_VERSION=0.0.45
@@ -7,13 +9,25 @@ ARG N_VERSION=10.2.0
 ARG NPM_VERSION=12.2.0
 ARG UV_VERSION=0.12.22
 ARG GH_VERSION=2.102.0
+ARG DOTNET_VERSION=10.0.401
 ARG TARGETARCH
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-      build-essential ca-certificates curl git libatomic1 libglu1-mesa \
-      openssh-client pkg-config ripgrep unzip xz-utils zip \
+      build-essential ca-certificates cmake curl file gdb git jq less \
+      libatomic1 libffi-dev libglu1-mesa libgssapi-krb5-2 libicu72 libicu-dev \
+      libsqlite3-dev libssl-dev make ninja-build openssh-client patch pkg-config \
+      python3 python3-dev python3-venv ripgrep rsync sqlite3 unzip wget xz-utils \
+      zip zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
+    && bash /tmp/dotnet-install.sh --version "$DOTNET_VERSION" --install-dir /opt/dotnet --no-path \
+    && /opt/dotnet/dotnet --info \
+    && rm /tmp/dotnet-install.sh
+
+COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
+COPY --from=docker-cli /usr/local/libexec/docker/cli-plugins/ /usr/local/libexec/docker/cli-plugins/
 
 # Install the release archive into the immutable image, not the writable T3 home.
 RUN set -eu; \
@@ -39,8 +53,10 @@ ENV HOME=/home/node \
     T3CODE_TELEMETRY_ENABLED=false \
     NPM_CONFIG_PREFIX=/home/node/.local \
     N_PREFIX=/home/node/.local \
+    DOTNET_ROOT=/opt/dotnet \
+    DOTNET_CLI_TELEMETRY_OPTOUT=1 \
     GH_HOST=github.com \
-    PATH="/home/node/.local/bin:/home/node/.local/share/flutter/bin:${PATH}"
+    PATH="/home/node/.local/bin:/home/node/.dotnet/tools:/home/node/.local/share/flutter/bin:/opt/dotnet:${PATH}"
 
 COPY --chmod=0755 install-forge-cli.sh /usr/local/bin/install-forge-cli
 
@@ -52,6 +68,7 @@ RUN mkdir -p /workspace/repos /workspace/worktrees /home/node/.t3 \
     && chown -R node:node /workspace /home/node
 
 USER node
+RUN docker compose version
 RUN install-forge-cli gh "$GH_VERSION" \
     && gh config set git_protocol https --host github.com \
     && gh auth setup-git --hostname github.com --force
@@ -60,7 +77,7 @@ RUN npm install --global "npm@${NPM_VERSION}" "n@${N_VERSION}" \
     && UV_INSTALL_DIR=/home/node/.local/bin UV_NO_MODIFY_PATH=1 sh /tmp/uv-install.sh \
     && rm /tmp/uv-install.sh \
     && npm config set allow-scripts=@openai/codex,@anthropic-ai/claude-code,opencode-ai --location=user \
-    && printf '\nexport PATH="$HOME/.local/bin:$HOME/.local/share/flutter/bin:$PATH"\n' >> /home/node/.profile
+    && printf '\nexport PATH="$HOME/.local/bin:$HOME/.dotnet/tools:$HOME/.local/share/flutter/bin:/opt/dotnet:$PATH"\n' >> /home/node/.profile
 ARG CODEX_VERSION=0.160.0
 ARG CLAUDE_VERSION=2.1.287
 ARG OPENCODE_VERSION=1.18.34

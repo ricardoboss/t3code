@@ -4,7 +4,13 @@ Requires Docker Engine and Docker Compose v2 on a Linux host (amd64 or arm64).
 Copy this directory onto the host. No source checkout, desktop, or systemd inside
 the container is needed. The Dockerfile has `runtime` and `providers` targets;
 the default seeds Codex, Claude, and OpenCode CLIs into a writable user installation.
-Both targets include GitHub CLI (`gh`).
+Both targets include GitHub CLI (`gh`), the .NET 10 SDK, ICU, Make/GCC/G++,
+CMake/Ninja, GDB, Python 3 with venv/build support, and common CLI tools (`jq`,
+`rsync`, `wget`, `patch`, `file`, `less`, SQLite). Native development headers
+include ICU, OpenSSL, libffi, SQLite, and zlib. Override `DOTNET_VERSION` to select
+the SDK version at build time; .NET global tools installed with
+`dotnet tool install --global` persist in the home volume and are on PATH.
+Docker CLI, Buildx, and Compose are included for the stack's dedicated daemon.
 
 ## Install
 
@@ -170,6 +176,32 @@ cannot use root-level `apt install`. Tools that download executable scratch
 files can use `mkdir -p "$HOME/.cache/tmp"` and set
 `TMPDIR="$HOME/.cache/tmp"` for that command instead of using noexec `/tmp`.
 
+## Agent containers
+
+The `docker` service runs a separate Docker-in-Docker daemon. Agents can use
+`docker build`, `docker run`, and `docker compose` directly; the client connects
+to `docker:2376` with TLS client certificates. No daemon port is published to the
+host, and the host Docker socket is not mounted. Images, nested containers, and
+their named volumes persist in `docker-data`.
+
+The daemon mounts the same dedicated workspace at `/workspace`, so bind mounts
+must use paths beneath that directory. Home-volume and `/tmp` paths are not
+shared with the daemon; use a Docker named volume or a workspace path instead.
+Nested containers run as the user selected by their image; use `--user 1000:1000`
+when they write workspace files to preserve agent access. Published nested
+container ports are reachable from T3 at `docker:PORT`, not `localhost:PORT`,
+and are not automatically published on the host.
+
+Docker-in-Docker requires a privileged daemon container. Agents have full control
+of that daemon, including launching privileged nested containers. This stack is
+for trusted agents on a dedicated host or VM; the daemon is not a security
+sandbox. A filtering proxy is omitted because normal builds, Compose, and bind
+mounts need broad Docker API access. TLS authenticates access to the dedicated
+daemon without exposing the host daemon.
+
+Set `DOCKER_VERSION` to update both client and daemon. `T3_DOCKER_CPUS` and
+`T3_DOCKER_MEMORY` bound the daemon and its nested workloads separately from T3.
+
 ## Filesystem boundary
 
 | Location         | Access                          | Contents                                                                                                  |
@@ -184,15 +216,16 @@ worktree symlink. Existing volumes retain their configuration across rebuilds.
 T3's application logs live at `/home/node/.t3/userdata/logs`; Docker output logs
 are rotated separately. Back up the workspace and home volume with the container
 stopped for a consistent database backup. `docker compose down` preserves the
-volume; `down --volumes` deletes credentials, history, and installed user tools.
+volumes; `down --volumes` also deletes credentials, history, installed user tools,
+Docker images, nested container volumes, and daemon certificates.
 
-The process runs as UID/GID 1000 with all Linux capabilities dropped,
+The T3 process runs as UID/GID 1000 with all Linux capabilities dropped,
 `no-new-privileges`, Docker's default seccomp profile, private container namespaces,
 and CPU/memory/process limits. Keep Ubuntu's default Docker AppArmor profile
-enabled. There is no Docker socket, SSH-agent socket, device passthrough, host
-network/PID namespace, or host home mount. Use rootless Docker or Docker user
-namespace remapping for an additional host boundary; adjust bind ownership to
-the mapped UID in that case.
+enabled for T3. There is no host Docker socket, SSH-agent socket, host network/PID
+namespace, or host home mount. The separate Docker daemon is privileged as
+described above; T3's restrictions do not constrain containers agents launch
+through that daemon.
 
 This limits host filesystem access, not reads of the container's operating-system
 files. T3 and agents share a UID: agents can read/change credentials, history,
@@ -233,8 +266,9 @@ docker compose up -d
 ```
 
 Use image rebuilds rather than `t3 update` or UI server-runtime updates.
-Provider CLIs, SDKs, `n`, and `uv` can be updated in the home volume by agents.
-Their Dockerfile version pins seed new volumes only; rebuilding does not
+Provider CLIs, user-installed SDKs, `n`, and `uv` can be updated in the home volume
+by agents. The bundled .NET SDK is updated by rebuilding with `DOTNET_VERSION`.
+User-tool version pins seed new volumes only; rebuilding does not
 overwrite tools in an existing volume. The home also holds T3's downloaded
 managed relay/provider helpers.
 

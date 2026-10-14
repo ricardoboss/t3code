@@ -13,6 +13,8 @@ services:
         N_VERSION: ${N_VERSION:-10.2.0}
         UV_VERSION: ${UV_VERSION:-0.12.22}
         GH_VERSION: ${GH_VERSION:-2.102.0}
+        DOTNET_VERSION: ${DOTNET_VERSION:-10.0.401}
+        DOCKER_VERSION: ${DOCKER_VERSION:-29.8.1}
         CODEX_VERSION: ${CODEX_VERSION:-0.160.0}
         CLAUDE_VERSION: ${CLAUDE_VERSION:-2.1.287}
         OPENCODE_VERSION: ${OPENCODE_VERSION:-1.18.34}
@@ -29,6 +31,9 @@ services:
     mem_limit: ${T3_MEMORY:-8g}
     memswap_limit: ${T3_MEMORY:-8g}
     environment:
+      DOCKER_HOST: tcp://docker:2376
+      DOCKER_TLS_VERIFY: "1"
+      DOCKER_CERT_PATH: /certs/client
       T3CODE_HOST: "127.0.0.1"
       T3CODE_PORT: "3773"
       T3CODE_LOG_LEVEL: ${T3_LOG_LEVEL:-Info}
@@ -43,10 +48,17 @@ services:
       - type: volume
         source: agent-home
         target: /home/node
+      - type: volume
+        source: docker-client-certs
+        target: /certs/client
+        read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,nodev,size=512m,mode=1777
     # No published ports, host networking, Docker socket, or host credentials.
-    networks: [egress]
+    depends_on:
+      docker:
+        condition: service_healthy
+    networks: [egress, docker-api]
     healthcheck:
       test:
         - CMD
@@ -63,10 +75,53 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  docker:
+    image: docker:${DOCKER_VERSION:-29.8.1}-dind
+    privileged: true
+    restart: unless-stopped
+    stop_grace_period: 60s
+    cpus: ${T3_DOCKER_CPUS:-4}
+    mem_limit: ${T3_DOCKER_MEMORY:-8g}
+    memswap_limit: ${T3_DOCKER_MEMORY:-8g}
+    environment:
+      DOCKER_TLS_CERTDIR: /certs
+    volumes:
+      - type: bind
+        source: ${T3_WORKSPACE_DIR:?Set T3_WORKSPACE_DIR to an existing absolute host directory}
+        target: /workspace
+        bind:
+          create_host_path: false
+      - type: volume
+        source: docker-data
+        target: /var/lib/docker
+      - type: volume
+        source: docker-certs
+        target: /certs
+      - type: volume
+        source: docker-client-certs
+        target: /certs/client
+    networks: [egress, docker-api]
+    healthcheck:
+      test: [CMD, docker, info]
+      interval: 5s
+      timeout: 5s
+      start_period: 30s
+      retries: 12
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   agent-home:
+  docker-data:
+  docker-certs:
+  docker-client-certs:
 
 networks:
   # Connect, provider APIs, and dependency downloads require outbound access.
   egress:
     driver: bridge
+  docker-api:
+    internal: true
