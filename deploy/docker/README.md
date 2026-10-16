@@ -244,6 +244,26 @@ may require kernel features unavailable under these restrictions; use the
 container as the boundary if necessary rather than enabling privileged mode or
 disabling Docker's security profiles.
 
+## Built-in browser
+
+The image includes Chrome's runtime libraries. Compose sets
+`T3CODE_SERVER_BROWSER_SANDBOX=0` so T3's built-in browser uses Docker's isolation
+instead of Chrome's nested sandbox. Docker's AppArmor/seccomp policies,
+non-root user, dropped capabilities, and read-only image remain in place.
+Browser processes have the same access to the workspace, credentials, and home
+volume as T3 and its agents; Chrome's additional process isolation is disabled.
+
+Rebuild the image and recreate the T3 container to apply this configuration:
+
+```sh
+docker compose build t3
+docker compose up -d t3
+```
+
+Do not run `sudo t3 browser setup` inside this container. That command configures
+a regular Linux host and may still suggest AppArmor setup even with the sandbox
+opt-out. T3 downloads its browser on first use into the persistent home volume.
+
 ## Configuration and updates
 
 Edit `.env` for the workspace path, hostname, image target, pinned versions, CPU/memory

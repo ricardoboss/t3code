@@ -39,6 +39,8 @@ services:
       T3CODE_PORT: "3773"
       T3CODE_LOG_LEVEL: ${T3_LOG_LEVEL:-Info}
       T3CODE_TELEMETRY_ENABLED: "false"
+      # Use the container boundary; Docker blocks Chrome's nested sandbox.
+      T3CODE_SERVER_BROWSER_SANDBOX: "0"
       GH_HOST: github.com
     volumes:
       - type: bind
