@@ -209,7 +209,7 @@ Set `DOCKER_VERSION` to update both client and daemon. `T3_DOCKER_CPUS` and
 | `/workspace`     | Read/write host bind            | Only the dedicated repositories and worktrees directory                                                   |
 | `/home/node`     | Read/write Docker volume        | T3 database, Connect identity, provider credentials/configuration, installed tools/SDKs, caches, and logs |
 | `/tmp`           | Temporary, size-limited, noexec | Scratch files; lost when the container is recreated                                                       |
-| Image filesystem | Read-only                       | T3, bootstrap Node, Git, build tools, operating-system files                                              |
+| Image filesystem | Read-only                       | T3 bootstrap, Node, Git, build tools, operating-system files                                              |
 
 The named home volume is initialized from the image on first use, including the
 worktree symlink. Existing volumes retain their configuration across rebuilds.
@@ -257,17 +257,33 @@ changing the host name, update `T3_HOSTNAME` and recreate the container with
 `docker compose up -d --force-recreate`. This does not share the host's UTS
 namespace or change the Connect tunnel address.
 
-T3 and system executables are immutable. Update the T3 version pin and rebuild
-while agent turns are idle:
+T3 runs through its service launcher, with versioned runtimes in the writable
+home volume. Update it through the client's server-runtime update action; the
+launcher restarts the server without restarting the container and retains the
+selected version across container recreation. Docker manages the launcher, so
+`t3 service install/restart` (which require systemd) are not used here. The `t3`
+command inside the container always resolves the service's active version.
+
+The image seeds T3 only when service state is absent, including when migrating
+an existing home volume from the previous `serve` setup. Rebuilding does not
+overwrite a runtime selected by an update.
+
+Build defaults follow the latest T3 and user-tool releases, Node 26, Docker 29,
+and the .NET 10.0 SDK channel. Optional version overrides in `.env` pin specific
+releases; remove old pins from an existing `.env` to use the moving defaults.
+To refresh system tools and the image's bootstrap defaults, bypass Docker's
+cached download layers:
 
 ```sh
-docker compose build --pull
+docker compose build --pull --no-cache
 docker compose up -d
 ```
 
-Use image rebuilds rather than `t3 update` or UI server-runtime updates.
+Use the client's server-runtime update action for the running T3 service;
+`t3 update` alone does not switch this Docker-managed service.
 Provider CLIs, user-installed SDKs, `n`, and `uv` can be updated in the home volume
-by agents. The bundled .NET SDK is updated by rebuilding with `DOTNET_VERSION`.
+by agents. The bundled .NET SDK is updated by rebuilding; `DOTNET_CHANNEL`
+selects its release channel and `DOTNET_VERSION` can pin an exact SDK.
 User-tool version pins seed new volumes only; rebuilding does not
 overwrite tools in an existing volume. The home also holds T3's downloaded
 managed relay/provider helpers.

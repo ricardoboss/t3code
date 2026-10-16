@@ -7,17 +7,18 @@ services:
       context: .
       target: ${T3_IMAGE_TARGET:-providers}
       args:
-        NODE_VERSION: ${NODE_VERSION:-26.10.0}
-        NPM_VERSION: ${NPM_VERSION:-12.2.0}
-        T3_VERSION: ${T3_VERSION:-0.0.45}
-        N_VERSION: ${N_VERSION:-10.2.0}
-        UV_VERSION: ${UV_VERSION:-0.12.22}
-        GH_VERSION: ${GH_VERSION:-2.102.0}
-        DOTNET_VERSION: ${DOTNET_VERSION:-10.0.401}
-        DOCKER_VERSION: ${DOCKER_VERSION:-29.8.1}
-        CODEX_VERSION: ${CODEX_VERSION:-0.160.0}
-        CLAUDE_VERSION: ${CLAUDE_VERSION:-2.1.287}
-        OPENCODE_VERSION: ${OPENCODE_VERSION:-1.18.34}
+        NODE_VERSION:
+        NPM_VERSION:
+        T3_VERSION:
+        N_VERSION:
+        UV_VERSION:
+        GH_VERSION:
+        DOTNET_CHANNEL:
+        DOTNET_VERSION:
+        DOCKER_VERSION:
+        CODEX_VERSION:
+        CLAUDE_VERSION:
+        OPENCODE_VERSION:
     init: true
     user: "1000:1000"
     read_only: true
@@ -76,7 +77,7 @@ services:
         max-file: "3"
 
   docker:
-    image: docker:${DOCKER_VERSION:-29.8.1}-dind
+    image: docker:${DOCKER_VERSION:-29}-dind
     privileged: true
     restart: unless-stopped
     stop_grace_period: 60s

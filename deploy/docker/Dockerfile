@@ -1,15 +1,16 @@
 # syntax=docker/dockerfile:1
-ARG NODE_VERSION=26.10.0
-ARG DOCKER_VERSION=29.8.1
+ARG NODE_VERSION=26
+ARG DOCKER_VERSION=29
 FROM docker:${DOCKER_VERSION}-cli AS docker-cli
 FROM node:${NODE_VERSION}-bookworm-slim AS runtime
 
-ARG T3_VERSION=0.0.45
-ARG N_VERSION=10.2.0
-ARG NPM_VERSION=12.2.0
-ARG UV_VERSION=0.12.22
-ARG GH_VERSION=2.102.0
-ARG DOTNET_VERSION=10.0.401
+ARG T3_VERSION=latest
+ARG N_VERSION=latest
+ARG NPM_VERSION=latest
+ARG UV_VERSION=latest
+ARG GH_VERSION=latest
+ARG DOTNET_CHANNEL=10.0
+ARG DOTNET_VERSION=latest
 ARG TARGETARCH
 
 RUN apt-get update \
@@ -22,16 +23,19 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
-    && bash /tmp/dotnet-install.sh --version "$DOTNET_VERSION" --install-dir /opt/dotnet --no-path \
+    && bash /tmp/dotnet-install.sh --channel "$DOTNET_CHANNEL" --version "$DOTNET_VERSION" --install-dir /opt/dotnet --no-path \
     && /opt/dotnet/dotnet --info \
     && rm /tmp/dotnet-install.sh
 
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=docker-cli /usr/local/libexec/docker/cli-plugins/ /usr/local/libexec/docker/cli-plugins/
 
-# Install the release archive into the immutable image, not the writable T3 home.
+# Keep a bootstrap runtime in the image for both new and existing home volumes.
 RUN set -eu; \
     case "$TARGETARCH" in amd64) arch=x64 ;; arm64) arch=arm64 ;; *) exit 1 ;; esac; \
+    if [ "$T3_VERSION" = latest ]; then \
+      T3_VERSION=$(curl -fsSL https://api.github.com/repos/pingdotgg/t3code/releases/latest | jq -er '.tag_name | ltrimstr("v")'); \
+    fi; \
     archive="t3-${T3_VERSION}-linux-${arch}.tar.gz"; \
     release="https://github.com/pingdotgg/t3code/releases/download/v${T3_VERSION}"; \
     mkdir -p /opt/t3 /tmp/t3-install; \
@@ -41,8 +45,8 @@ RUN set -eu; \
     grep -F "$archive" SHA256SUMS > archive.sha256; \
     sha256sum -c archive.sha256; \
     tar -xzf "$archive" -C /opt/t3 --strip-components=1; \
-    ln -s /opt/t3/t3 /usr/local/bin/t3; \
-    t3 --version; \
+    /opt/t3/t3 --version; \
+    printf '%s\n' "$T3_VERSION" > /opt/t3/version; \
     rm -rf /tmp/t3-install
 
 ENV HOME=/home/node \
@@ -59,6 +63,7 @@ ENV HOME=/home/node \
     PATH="/home/node/.local/bin:/home/node/.dotnet/tools:/home/node/.local/share/flutter/bin:/opt/dotnet:${PATH}"
 
 COPY --chmod=0755 install-forge-cli.sh /usr/local/bin/install-forge-cli
+COPY --chmod=0755 t3-entrypoint.sh /usr/local/bin/t3
 
 # Docker copies this initial home into a new named volume. T3's default worktree
 # location resolves into the same host directory as repositories.
@@ -73,14 +78,15 @@ RUN install-forge-cli gh "$GH_VERSION" \
     && gh config set git_protocol https --host github.com \
     && gh auth setup-git --hostname github.com --force
 RUN npm install --global "npm@${NPM_VERSION}" "n@${N_VERSION}" \
-    && curl -fsSL "https://astral.sh/uv/${UV_VERSION}/install.sh" -o /tmp/uv-install.sh \
+    && if [ "$UV_VERSION" = latest ]; then uv_path=; else uv_path="${UV_VERSION}/"; fi \
+    && curl -fsSL "https://astral.sh/uv/${uv_path}install.sh" -o /tmp/uv-install.sh \
     && UV_INSTALL_DIR=/home/node/.local/bin UV_NO_MODIFY_PATH=1 sh /tmp/uv-install.sh \
     && rm /tmp/uv-install.sh \
     && npm config set allow-scripts=@openai/codex,@anthropic-ai/claude-code,opencode-ai --location=user \
     && printf '\nexport PATH="$HOME/.local/bin:$HOME/.dotnet/tools:$HOME/.local/share/flutter/bin:/opt/dotnet:$PATH"\n' >> /home/node/.profile
-ARG CODEX_VERSION=0.160.0
-ARG CLAUDE_VERSION=2.1.287
-ARG OPENCODE_VERSION=1.18.34
+ARG CODEX_VERSION=latest
+ARG CLAUDE_VERSION=latest
+ARG OPENCODE_VERSION=latest
 ENV GH_VERSION=${GH_VERSION} \
     CODEX_VERSION=${CODEX_VERSION} \
     CLAUDE_VERSION=${CLAUDE_VERSION} \
@@ -88,7 +94,7 @@ ENV GH_VERSION=${GH_VERSION} \
 COPY --chmod=0755 setup-tools.sh /usr/local/bin/setup-tools
 WORKDIR /workspace
 ENTRYPOINT ["t3"]
-CMD ["serve"]
+CMD []
 
 FROM runtime AS providers
 RUN npm install --global \

@@ -3,6 +3,9 @@ set -eu
 
 tool=${1:?Usage: install-forge-cli gh VERSION}
 version=${2:?Supply a release version without the v prefix}
+if [ "$tool" = gh ] && [ "$version" = latest ]; then
+  version=$(curl -fsSL https://api.github.com/repos/cli/cli/releases/latest | jq -er '.tag_name | ltrimstr("v")')
+fi
 case "$version" in ''|*[!0-9.]*) echo 'Expected a numeric release version' >&2; exit 1 ;; esac
 case "$(uname -m)" in x86_64) arch=amd64 ;; aarch64) arch=arm64 ;; *) exit 1 ;; esac
 destination="$HOME/.local/bin"
