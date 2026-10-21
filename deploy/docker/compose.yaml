@@ -56,7 +56,7 @@ services:
         target: /certs/client
         read_only: true
     tmpfs:
-      - /tmp:rw,noexec,nosuid,nodev,size=512m,mode=1777
+      - /tmp:rw,nosuid,nodev,size=1024m,mode=1777
     # No published ports, host networking, Docker socket, or host credentials.
     depends_on:
       docker:

@@ -85,7 +85,7 @@ configure_tool() {
   printf '\n--- %s ---\n' "${labels[$index]}"
   case "$action" in
     1)
-      if ! command -v "$tool" >/dev/null 2>&1; then
+      if ! command -v "$tool" >/dev/null 2>&1 || ! "$tool" --version >/dev/null 2>&1; then
         install_tool "$index" "${versions[$index]}" || return
       fi
       authenticate "$tool"

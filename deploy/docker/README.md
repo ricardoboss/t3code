@@ -74,7 +74,7 @@ PATH in terminals and provider processes. Do not mount host tool directories.
 
 Choose one or more numbered tools, or `a` for all. Then choose an action:
 
-- **Set up / reauthenticate:** install missing tools at the image's configured
+- **Set up / reauthenticate:** install missing or broken tools at the image's configured
   versions, then run their native login prompts, including for existing accounts.
 - **Authentication status:** inspect saved authentication without installing tools.
 - **Install / update version:** enter a version or accept the default (`latest`
@@ -161,10 +161,12 @@ Node with `n` also installs its bundled npm; run `npm install -g npm@latest`
 afterwards to use the latest npm. A tool installed in an existing home volume
 takes precedence over the image's bootstrap tools.
 
-npm 12 blocks dependency install scripts by default. The initial user config
-allows scripts for the three included provider packages so their native binaries
-install correctly. The command above applies that config to existing home
-volumes too. Other global tools may require their own `--allow-scripts` approval;
+npm 12 blocks dependency install scripts by default. The image's environment
+allows scripts for the three included provider packages, including with existing
+home volumes, so their native binaries install correctly. If an earlier Claude
+installation reports a missing native binary, use `setup-tools` to set up Claude
+again, or run `npm rebuild -g --allow-scripts=@anthropic-ai/claude-code @anthropic-ai/claude-code`.
+Other global tools may require their own `--allow-scripts` approval;
 project dependencies use the project's npm script policy.
 
 The image includes a C/C++ build toolchain and Flutter's basic Linux SDK
@@ -172,9 +174,7 @@ prerequisites. Flutter Android builds also need an Android SDK/JDK, which can be
 installed under the user home; Linux desktop builds need additional system
 libraries baked into the image. Host devices and emulators are not passed
 through. System packages and T3 itself still require an image rebuild: agents
-cannot use root-level `apt install`. Tools that download executable scratch
-files can use `mkdir -p "$HOME/.cache/tmp"` and set
-`TMPDIR="$HOME/.cache/tmp"` for that command instead of using noexec `/tmp`.
+cannot use root-level `apt install`.
 
 ## Agent containers
 
@@ -208,7 +208,7 @@ Set `DOCKER_VERSION` to update both client and daemon. `T3_DOCKER_CPUS` and
 | ---------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | `/workspace`     | Read/write host bind            | Only the dedicated repositories and worktrees directory                                                   |
 | `/home/node`     | Read/write Docker volume        | T3 database, Connect identity, provider credentials/configuration, installed tools/SDKs, caches, and logs |
-| `/tmp`           | Temporary, size-limited, noexec | Scratch files; lost when the container is recreated                                                       |
+| `/tmp`           | Temporary, size-limited | Scratch files; lost when the container is recreated                                                       |
 | Image filesystem | Read-only                       | T3 bootstrap, Node, Git, build tools, operating-system files                                              |
 
 The named home volume is initialized from the image on first use, including the
@@ -237,9 +237,7 @@ Container isolation is not a VM boundary.
 Outbound networking remains available for T3 Connect, provider APIs, Git, and
 package downloads. It is not an egress allowlist and does not block connections
 to other homelab services. Enforce those restrictions at the host firewall or
-run the stack in a dedicated VM/network segment if required. Noexec temporary
-storage can prevent tools that execute downloaded files from `/tmp`; configure
-those tools to use a directory under `/workspace` instead. Provider sandboxes
+run the stack in a dedicated VM/network segment if required. Provider sandboxes
 may require kernel features unavailable under these restrictions; use the
 container as the boundary if necessary rather than enabling privileged mode or
 disabling Docker's security profiles.

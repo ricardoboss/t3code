@@ -23,6 +23,7 @@ RUN apt-get update \
       libxfixes3 libxrandr2 libxkbcommon0 libgbm1 libasound2 libexpat1 \
       python3 python3-dev python3-venv ripgrep rsync sqlite3 unzip wget xz-utils \
       zip zlib1g-dev \
+      fontconfig fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
@@ -59,6 +60,7 @@ ENV HOME=/home/node \
     T3CODE_NO_BROWSER=true \
     T3CODE_TELEMETRY_ENABLED=false \
     NPM_CONFIG_PREFIX=/home/node/.local \
+    NPM_CONFIG_ALLOW_SCRIPTS=@openai/codex,@anthropic-ai/claude-code,opencode-ai \
     N_PREFIX=/home/node/.local \
     DOTNET_ROOT=/opt/dotnet \
     DOTNET_CLI_TELEMETRY_OPTOUT=1 \
@@ -103,4 +105,5 @@ FROM runtime AS providers
 RUN npm install --global \
       "@openai/codex@${CODEX_VERSION}" "@anthropic-ai/claude-code@${CLAUDE_VERSION}" \
       "opencode-ai@${OPENCODE_VERSION}" \
+    && codex --version && claude --version && opencode --version \
     && npm cache clean --force
