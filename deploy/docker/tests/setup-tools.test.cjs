@@ -23,7 +23,11 @@ fi
 if [[ "$(basename "$0")" == "$FAIL_TOOL" ]]; then exit 1; fi
 `;
   const write = (file, body) => fs.writeFileSync(file, body, { mode: 0o755 });
-  for (const tool of installed) write(path.join(home, ".local/bin", tool), cli);
+  for (const tool of installed) {
+    write(path.join(home, ".local/bin", tool), tool === "claude"
+      ? '#!/bin/bash\nif [[ "$BROKEN_CLAUDE" == 1 && "$1" == --version ]]; then exit 1; fi\n' + cli.split("\n").slice(1).join("\n")
+      : cli);
+  }
   fs.writeFileSync(path.join(root, "cli"), cli);
   write(
     path.join(bin, "install-forge-cli"),
@@ -84,6 +88,13 @@ test("first setup installs selected tools and rerun reauthenticates without rein
   const second = run("1 2\n1\n1\nq\n");
   assert.equal(second.calls.split("install gh").length, 2);
   assert.equal(second.calls.split("codex login --device-auth").length, 3);
+});
+
+test("setup repairs an installed provider whose executable fails", (t) => {
+  const run = fixture(t, ["claude"]);
+  const result = run("3\n1\n2\nq\n", { BROKEN_CLAUDE: "1" });
+  assert.match(result.calls, /npm install --global --allow-scripts=@anthropic-ai\/claude-code/);
+  assert.match(result.calls, /claude auth login --console/);
 });
 
 test("status, version updates, logout and invalid selection", (t) => {
