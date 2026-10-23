@@ -7,7 +7,7 @@ export NPM_CONFIG_PREFIX="$HOME/.local"
 # Add tools here and their native authentication commands in authenticate().
 tools=(gh codex claude opencode)
 labels=('GitHub CLI' 'Codex' 'Claude Code' 'OpenCode')
-packages=('' '@openai/codex' '@anthropic-ai/claude-code' 'opencode-ai')
+packages=('' '@openai/codex' '@anthropic-ai/claude-code' '@opencode/cli')
 versions=("${GH_VERSION:-}" "${CODEX_VERSION:-}" "${CLAUDE_VERSION:-}" "${OPENCODE_VERSION:-}")
 
 install_tool() {

@@ -60,7 +60,7 @@ ENV HOME=/home/node \
     T3CODE_NO_BROWSER=true \
     T3CODE_TELEMETRY_ENABLED=false \
     NPM_CONFIG_PREFIX=/home/node/.local \
-    NPM_CONFIG_ALLOW_SCRIPTS=@openai/codex,@anthropic-ai/claude-code,opencode-ai \
+    NPM_CONFIG_ALLOW_SCRIPTS=@openai/codex,@anthropic-ai/claude-code,@opencode/cli \
     N_PREFIX=/home/node/.local \
     DOTNET_ROOT=/opt/dotnet \
     DOTNET_CLI_TELEMETRY_OPTOUT=1 \
@@ -87,7 +87,7 @@ RUN npm install --global "npm@${NPM_VERSION}" "n@${N_VERSION}" \
     && curl -fsSL "https://astral.sh/uv/${uv_path}install.sh" -o /tmp/uv-install.sh \
     && UV_INSTALL_DIR=/home/node/.local/bin UV_NO_MODIFY_PATH=1 sh /tmp/uv-install.sh \
     && rm /tmp/uv-install.sh \
-    && npm config set allow-scripts=@openai/codex,@anthropic-ai/claude-code,opencode-ai --location=user \
+    && npm config set allow-scripts=@openai/codex,@anthropic-ai/claude-code,@opencode/cli --location=user \
     && printf '\nexport PATH="$HOME/.local/bin:$HOME/.dotnet/tools:$HOME/.local/share/flutter/bin:/opt/dotnet:$PATH"\n' >> /home/node/.profile
 ARG CODEX_VERSION=latest
 ARG CLAUDE_VERSION=latest
@@ -104,6 +104,6 @@ CMD []
 FROM runtime AS providers
 RUN npm install --global \
       "@openai/codex@${CODEX_VERSION}" "@anthropic-ai/claude-code@${CLAUDE_VERSION}" \
-      "opencode-ai@${OPENCODE_VERSION}" \
+      "@opencode/cli@${OPENCODE_VERSION}" \
     && codex --version && claude --version && opencode --version \
     && npm cache clean --force

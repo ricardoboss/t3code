@@ -118,9 +118,9 @@ no sudo and persist across container recreation:
 
 ```sh
 # Provider CLIs and other npm tools use the writable user prefix.
-npm config set allow-scripts=@openai/codex,@anthropic-ai/claude-code,opencode-ai --location=user
+npm config set allow-scripts=@openai/codex,@anthropic-ai/claude-code,@opencode/cli --location=user
 npm install -g @openai/codex@latest @anthropic-ai/claude-code@latest
-npm install -g opencode-ai@latest
+npm install -g @opencode/cli@latest
 npm install -g n@latest
 
 # GitHub CLI: supply the desired release version; downloads verify SHA256 sums.

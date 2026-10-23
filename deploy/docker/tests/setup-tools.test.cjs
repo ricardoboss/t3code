@@ -44,7 +44,7 @@ echo "npm $*" >> "$HOME/calls"
 case "$*" in
   *@openai/codex@*) tool=codex ;;
   *@anthropic-ai/claude-code@*) tool=claude ;;
-  *opencode-ai@*) tool=opencode ;;
+  *@opencode/cli@*) tool=opencode ;;
   *) exit 1 ;;
 esac
 cp "$FIXTURE/cli" "$HOME/.local/bin/$tool"
@@ -64,7 +64,7 @@ chmod +x "$HOME/.local/bin/$tool"
         GH_VERSION: "2.102.0",
         CODEX_VERSION: "0.160.0",
         CLAUDE_VERSION: "2.1.287",
-        OPENCODE_VERSION: "1.18.34",
+        OPENCODE_VERSION: "2.1.4",
         FAIL_TOOL: "",
         ...extra,
       },
