@@ -42,6 +42,7 @@ services:
       # Use the container boundary; Docker blocks Chrome's nested sandbox.
       T3CODE_SERVER_BROWSER_SANDBOX: "0"
       GH_HOST: github.com
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL}
     volumes:
       - type: bind
         source: ${T3_WORKSPACE_DIR:?Set T3_WORKSPACE_DIR to an existing absolute host directory}
